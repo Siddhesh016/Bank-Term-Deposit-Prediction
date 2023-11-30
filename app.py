@@ -1,62 +1,69 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import pickle
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.ensemble import RandomForestClassifier
-from xgboost.sklearn import XGBClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
-from sklearn.model_selection import GridSearchCV
 
-# Load Data
-@st.cache
+# Load the pre-trained models
+rf_model = pickle.load(open('random_forest_model.pkl', 'rb'))
+xgb_model = pickle.load(open('xgboost_model.pkl', 'rb'))
+logistic_model = pickle.load(open('logistic_regression_model.pkl', 'rb'))
+dt_model = pickle.load(open('decision_tree_model.pkl', 'rb'))
+
+# Load the LabelEncoder and StandardScaler
+le = pickle.load(open('label_encoder.pkl', 'rb'))
+scaler = pickle.load(open('standard_scaler.pkl', 'rb'))
+
+@st.cache(allow_output_mutation=True)
 def load_data():
+    # Load your dataset here
     df = pd.read_csv('C:/Users/Aditya Rai/Dropbox/PC/Desktop/Bank-Term-Deposit-Prediction/dataset/bank.csv')
     return df
 
-df = load_data()
+def build_model(train_size, random_state):
+    df = load_data()
 
-# EDA Function
-def perform_eda(df):
-    # Your EDA code here
-    pass
+    # Feature Engineering and Preprocessing
+    df.drop(['default'], axis=1, inplace=True)
+    df.drop(['pdays'], axis=1, inplace=True)
+    df = df[df['campaign'] < 33]
+    df = df[df['previous'] < 31]
 
-# Feature Engineering Function
-def feature_engineering(df):
-    # Your feature engineering code here
-    pass
+    # Label Encoding
+    le = LabelEncoder()
+    df['job'] = le.fit_transform(df['job'])
+    df['marital'] = le.fit_transform(df['marital'])
+    df['education'] = le.fit_transform(df['education'])
+    df['contact'] = le.fit_transform(df['contact'])
+    df['month'] = le.fit_transform(df['month'])
+    df['poutcome'] = le.fit_transform(df['poutcome'])
+    df['housing'] = le.fit_transform(df['housing'])
+    df['loan'] = le.fit_transform(df['loan'])
+    df['deposit'] = le.fit_transform(df['deposit'])
 
-# Model Building Function
-def build_model(X_train, X_test, y_train, y_test):
-    # Your model building code here
-    pass
+    # Standardization
+    sc = StandardScaler()
+    df['balance'] = sc.fit_transform(df['balance'].values.reshape(-1, 1))
+    df['duration'] = sc.fit_transform(df['duration'].values.reshape(-1, 1))
 
-# Streamlit App
+    # Splitting Data Into Train and Test
+    X = df.drop(['deposit'], axis=1)
+    y = df['deposit']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1 - train_size, random_state=random_state)
+
+    return X_train, X_test, y_train, y_test
+
+# Streamlit app
 def main():
-    st.title("Bank Term Deposit Prediction App")
+    st.title("Bank Marketing Term Deposit Prediction App")
 
-    # EDA
-    st.header("Exploratory Data Analysis (EDA)")
-    perform_eda(df)
+    # Input form
+    train_size = st.slider("Train Size", 0.1, 0.9, 0.8, step=0.1)
+    random_state = st.slider("Random State", 0, 100, 0)
+    
+    X_train, X_test, y_train, y_test = build_model(train_size=train_size, random_state=random_state)
 
-    # Feature Engineering
-    st.header("Feature Engineering")
-    feature_engineering(df)
+    # Rest of your Streamlit app code...
 
-    # Model Building
-    st.header("Model Building")
-    X_train, X_test, y_train, y_test = build_model(train_size=0.8, random_state=0)
-
-    st.subheader("Model Performance")
-    st.write("Please wait while the models are being trained...")
-
-    # Train and evaluate models
-    model_results = train_and_evaluate_models(X_train, X_test, y_train, y_test)
-
-    st.subheader("Model Comparison")
-    st.table(model_results)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
